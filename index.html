@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DRM Web実験</title>
+
+  <link rel="icon" href="data:,">
+  <link href="jspsych/dist/jspsych.css" rel="stylesheet" />
+  <script src="jspsych/dist/jspsych.js"></script>
+  <script src="jspsych/dist/plugin-preload.js"></script>
+  <script src="jspsych/dist/plugin-html-keyboard-response.js"></script>
+  <script src="jspsych/dist/plugin-html-button-response.js"></script>
+  <script src="jspsych/dist/plugin-instructions.js"></script>
+  <script src="jspsych/dist/xlsx.full.min.js"></script>
+
+  <style>
+   
+    body { background:#fafafa; }
+    .container { max-width: 960px; margin: 12px auto; padding: 0 12px; }
+
+    /* 刺激（単語・数字・教示）を中央に。 */
+    .center-screen { min-height: 70vh; display:flex; align-items:center; justify-content:center; text-align:center; }
+    .center-recog  { min-height: 40vh; display:flex; align-items:center; justify-content:center; text-align:center; }
+
+    .word { font-size:54px; line-height:1.2; letter-spacing:2px; white-space:nowrap; overflow:visible; }
+    .note { color:#666; font-size:14px; }
+    .small { color:#666; font-size:12px; }
+    button { font-size:16px; }
+    @media (max-width: 820px) { .word { font-size:40px; } }
+    .jspsych-btn {
+     min-width: 200px;
+     font-size: 20px;
+     padding: 16px 0;
+     }
+     /* 教示文のサイズ */
+    .instr-size { font-size: 20px; line-height: 1.6; }
+    .instr-size h2 { font-size: 28px; font-weight: bold; }
+    /* 指示文のサイズ */
+    .sub-instr {
+     font-size: 30px;   
+     line-height: 1.6;
+     font-weight: bold; 
+     }
+  </style>
+</head>
+<body>
+  <div id="jspsych-target" class="container"></div>
+
+  <script>
+  // =============================================================
+  // DRM Web 実験
+  // =============================================================
+
+  // ---- ランタイムエラーの可視化（任意・簡易） ----
+  window.addEventListener('error', (ev)=>{
+    const el=document.getElementById('jspsych-target');
+    if(el) el.insertAdjacentHTML('afterbegin', `<pre style="color:#b00;white-space:pre-wrap">Runtime error: ${ev.message}</pre>`);
+  });
+
+  // IDの生成（日時+乱数）
+  function generateID(){
+    const d=new Date(); const z=n=>String(n).padStart(2,'0');
+    const timestamp=`${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`;
+    const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let r=''; for(let i=0;i<4;i++){ r+=chars.charAt(Math.floor(Math.random()*chars.length)); }
+    return `${timestamp}-${r}`;
+  }
+  const SUBJ_ID = generateID();
+
+  // 実験パラメータ
+  const EXP_NAME='DRM-XLSX-MinimalDebrief';
+  let STUDY_SO_A=1200, STUDY_ISI=300, PRE_BLANK_MS=1000, DISTRACTOR_NUM_MS=30000;
+  const BTN_LABELS=['学習した','学習していない'];
+
+  // URLパラメータ（seed / debug）
+  function qp(name){ const u=new URL(window.location.href); return u.searchParams.get(name); }
+  let rand=Math.random; const seedParam=qp('seed'); const DEBUG = qp('debug')==='1' || qp('debug')==='true';
+  if(seedParam){ let s=0; for(let i=0;i<seedParam.length;i++) s=(s*31+seedParam.charCodeAt(i))>>>0; function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;}}; rand=mulberry32(s); }
+  function shuffle(a){ const r=a.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; } return r; }
+  function choiceN(arr,n){ const s=shuffle(arr); return s.slice(0, Math.min(n, s.length)); }
+  function ts(){ const d=new Date(), z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}_${z(d.getHours())}-${z(d.getMinutes())}-${z(d.getSeconds())}`; }
+  function listPrefix(name){ return (name||'').charAt(0); }
+  function listNumber(name){ return parseInt((name||'').slice(1),10); }
+
+  // 条件（デバッグ短縮）
+  let KA=3, KB=3, STUDY_WORDS_PER_LIST=15, OLD_PER_LIST_FOR_RECOG=3, NEW_TOTAL=24;
+  if(DEBUG){ KA=1; KB=1; STUDY_SO_A=600; STUDY_ISI=200; PRE_BLANK_MS=500; DISTRACTOR_NUM_MS=1000; STUDY_WORDS_PER_LIST=5; OLD_PER_LIST_FOR_RECOG=2; NEW_TOTAL=8; }
+
+  // XLSX 読み込み
+  async function fetchAB(path){ const res=await fetch(path); if(!res.ok) throw new Error('fetch '+path+' failed ('+res.status+')'); return await res.arrayBuffer(); }
+  function xlsxToRows(ab){ const wb=XLSX.read(ab,{type:'array'}); const sh=wb.Sheets[wb.SheetNames[0]]; return XLSX.utils.sheet_to_json(sh,{defval:''}); }
+  function groupByListName(rows){
+    const map=new Map(); if(!rows||rows.length===0) return map; const keys=Object.keys(rows[0]||{});
+    const nameKey=keys.find(k=>String(k).toLowerCase().includes('list'))||keys[0];
+    const wordKey=keys.find(k=>String(k).toLowerCase().includes('word'))||keys[1];
+    for(const r of rows){ const k=String(r?.[nameKey]??'').trim(); const w=String(r?.[wordKey]??'').trim(); if(!k||!w) continue; if(!map.has(k)) map.set(k,[]); map.get(k).push(w);} return map;
+  }
+  async function loadAll(){
+    const [abStudy,abLure,abNew]=await Promise.all([
+      fetchAB('study_list.xlsx'),
+      fetchAB('lure_list.xlsx'),
+      fetchAB('notstudy_list.xlsx')
+    ]);
+    return {
+      studyMap:groupByListName(xlsxToRows(abStudy)),
+      lureMap: groupByListName(xlsxToRows(abLure)),
+      newMap:  groupByListName(xlsxToRows(abNew))
+    };
+  }
+
+  // セット構築
+  function pickABLists(studyMap){ const all=[...studyMap.keys()]; const As=all.filter(k=>listPrefix(k)==='A').sort((a,b)=>listNumber(a)-listNumber(b)); const Bs=all.filter(k=>listPrefix(k)==='B').sort((a,b)=>listNumber(a)-listNumber(b)); return { pickedA:choiceN(As,KA), pickedB:choiceN(Bs,KB) }; }
+  function buildStudyWords(studyMap, lists){ const out=[]; lists.forEach(k=>{ const ws=(studyMap.get(k)||[]).slice(0,STUDY_WORDS_PER_LIST); ws.forEach((w,i)=> out.push({word:w, list_name:k, list_type:'old', position:i})); }); return out; }
+  function buildLureWords(lureMap, lists){ const out=[]; lists.forEach(k=>{ const ws=lureMap.get(k)||[]; if(ws.length>0) out.push({word:ws[0], list_name:k, list_type:'lure', position:0}); }); return out; }
+  function buildNewWordsFromAllC(newMap, count){ const pool=[]; for(const [k,ws] of newMap.entries()){ if(String(k).startsWith('C')) pool.push(...ws); } const pick=choiceN(pool,count); return pick.map((w,i)=>({word:w, list_name:'C*', list_type:'new', position:i})); }
+  function sampleOldForRecognition(studyItems){ const byList=new Map(); for(const it of studyItems){ if(!byList.has(it.list_name)) byList.set(it.list_name,[]); byList.get(it.list_name).push(it);} let recogOld=[]; for(const [k,arr] of byList.entries()){ const s=choiceN(arr,OLD_PER_LIST_FOR_RECOG); recogOld=recogOld.concat(s.map(x=>({word:x.word, list_name:k, list_type:'old', is_old:true}))); } return recogOld; }
+
+  // ==== 不要列を除外してCSV化 ====
+  const DROP_COLUMNS = ["view_history","stimulus","plugin_version","stage"];
+  const COLUMN_ORDER = ["exp_name","subj_id","trial_index","trial_type","time_elapsed","list_name","list_type","phase","word","number","is_old","said_old","response","correct","rt"];
+
+  function toFilteredCSV(dataCollection, dropKeys, order) {
+    const rows = dataCollection.get().values();
+    if (!rows || rows.length === 0) return "";
+
+    // すべての列名を収集
+    const allKeys = new Set();
+    for (const r of rows) for (const k of Object.keys(r)) allKeys.add(k);
+
+    // 1) 指定順序をベースに（重複や存在しない列を除きつつ）採用
+    const seen = new Set();
+    const headers = [];
+    for (const k of (order || [])) {
+      if (allKeys.has(k) && !dropKeys.includes(k) && !seen.has(k)) {
+        seen.add(k);
+        headers.push(k);
+      }
+    }
+
+    // 2) 指定順序に入っていない残りの列は、「初出順」で後ろに追加
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        if (!dropKeys.includes(k) && !seen.has(k)) {
+          seen.add(k);
+          headers.push(k);
+        }
+      }
+    }
+
+    // CSV生成
+    const lines = [];
+    lines.push(headers.join(","));
+    for (const r of rows) {
+      const line = headers.map(h => JSON.stringify(r[h] ?? "")).join(",");
+      lines.push(line);
+    }
+    return lines.join("\n");
+  }
+  
+  // === 共通の保存関数（自動・手動で使用） ===
+  function saveCsvFile(csv, fname){
+    const bom  = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = fname;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    setTimeout(()=>{ a.click(); }, 0);
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 3000);
+  }
+
+  // 実行本体
+  (async function main(){
+    let studyMap,lureMap,newMap; try{ ({studyMap,lureMap,newMap}=await loadAll()); } catch(e){ return; }
+
+    const {pickedA,pickedB}=pickABLists(studyMap); const pickedAll=[...pickedA, ...pickedB];
+    const studyItems = buildStudyWords(studyMap, pickedAll);
+    const lureItems  = buildLureWords(lureMap, pickedAll);
+    const newItemsX  = buildNewWordsFromAllC(newMap, NEW_TOTAL);
+
+    const jsPsych = initJsPsych({
+      display_element: 'jspsych-target',
+      // 自動保存は終了画面で行う（ここでは実施しない）
+      on_finish: () => {}
+    });
+    jsPsych.data.addProperties({ exp_name:EXP_NAME, subj_id:SUBJ_ID });
+
+    const timeline=[];
+
+    // 教示（Study）
+    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>学習フェイズ</h2><p>これから単語リストが表示されます。すべての単語をよく覚えてください。</p><p>各リストの提示が終わるたびに、<b>3桁の数字が</b>表示されます。</p><p>数字が表示されている間は <b>声に出してその数字から7を引き続けてください。</p><p>Nextボタンを押すと学習フェイズが始まります。</b></p>${DEBUG?"<p class='small' style='color:#b00'>(DEBUG)</p>":""}</div></div>`], show_clickable_nav:true, data:{phase:'instruction_study'} });
+
+    // 学習（各リスト → 単語提示 → ISI → 3桁数字）
+    const groupedByList=new Map(); for(const it of studyItems){ if(!groupedByList.has(it.list_name)) groupedByList.set(it.list_name,[]); groupedByList.get(it.list_name).push(it);} 
+    const listOrder=shuffle([...groupedByList.keys()]);
+    for(const [listIndex, listName] of listOrder.entries()){
+      const words=groupedByList.get(listName);
+
+        // 開始アナウンス
+      timeline.push({
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `<div class='center-screen'><div class='word'>リスト${listIndex+1}が始まります</div></div>`,
+        choices: "NO_KEYS",
+        trial_duration: 3000,
+        data: { phase: 'list_intro', list_name: listName, list_index: listIndex+1 }
+      });
+
+        // 1秒ブランク
+     timeline.push({
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: '',
+        choices: "NO_KEYS",
+        trial_duration: 1000,
+        data: { phase: 'list_intro_blank', list_name: listName, list_index: listIndex+1 }
+      });
+
+      for(const [i,it] of words.entries()){
+        timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div class='word'>${it.word}</div></div>`, choices:'NO_KEYS', trial_duration:STUDY_SO_A, data:{phase:'study', list_name:listName, word:it.word} });
+        timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:'', choices:'NO_KEYS', trial_duration:STUDY_ISI, data:{phase:'study_isi'} });
+      }
+      const num=Math.floor(200+rand()*800);
+      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:PRE_BLANK_MS, data:{phase:'distractor_blank', list_name:listName} });
+      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:DISTRACTOR_NUM_MS, data:{phase:'distractor', list_name:listName, number:num} });
+    }
+
+    // 教示（Recognition）
+    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>再認フェイズ</h2><p>これからお見せする単語が先ほど学習した単語だったかどうかを判断してください。</p><p>先ほど見せられた単語なら「学習した」を、</p><p>見せられた単語でなければ「学習していない」をクリックしてください。</p><p>Nextボタンを押すと再認フェイズが始まります。</p></div></div>`], show_clickable_nav:true, data:{phase:'instruction_recognition'} });
+
+    // 再認セット
+    const recogOld = sampleOldForRecognition(studyItems);
+    const recogLure = lureItems.map(x=>({word:x.word, list_name:x.list_name, list_type:'lure', is_old:false}));
+    const recogNew  = newItemsX.map(x=>({word:x.word, list_name:x.list_name, list_type:'new',  is_old:false}));
+    const recogRaw  = shuffle([...recogOld, ...recogLure, ...recogNew]);
+    const recogTV   = recogRaw.map(o=>({
+      stim_html:`<div class='center-recog'><div class='word'>${o.word}</div></div>`,
+      word:o.word, list_name:o.list_name, list_type:o.list_type, is_old:!!o.is_old
+    }));
+
+    // 再認トライアル
+    timeline.push({
+      timeline: [{
+        type: jsPsychHtmlButtonResponse,
+        stimulus: jsPsych.timelineVariable('stim_html'),
+        choices: BTN_LABELS,
+        prompt: '<div class="note" style="margin-top:20px; font-size:20px; line-height:1.6">単語が先ほど学習したものかどうかを判断してください（クリックで回答）。</div>',
+        data: {
+          phase:'recognition', stage:'old_new',
+          word: jsPsych.timelineVariable('word'),
+          list_name: jsPsych.timelineVariable('list_name'),
+          list_type: jsPsych.timelineVariable('list_type'),
+          is_old: jsPsych.timelineVariable('is_old')
+        },
+        on_finish: (d)=>{
+          const idx=(typeof d.response==='number')?d.response:-1; const said_old=(idx===0);
+          d.said_old=said_old; d.correct=Number(idx!==-1 ? (said_old===d.is_old) : false);
+        }
+      }],
+      timeline_variables: recogTV
+    });
+
+    // === 終了画面 ===
+    let __autoSavedOnce = false;
+    timeline.push({
+      type: jsPsychHtmlButtonResponse,
+      stimulus: `
+        <div class='center-screen instr-size'>
+          <div>
+            <h3>終了</h3>
+            <p>ご協力ありがとうございました。</p>
+            <p class='small'>データが自動でダウンロードされていない場合は下のボタンを押してください。</p>
+          </div>
+        </div>
+      `,
+      choices: ['結果を保存して終了'],
+
+      // 表示直後に自動保存
+      on_load: () => {
+        if (!__autoSavedOnce) {
+          __autoSavedOnce = true;
+          try {
+            const csv = toFilteredCSV(jsPsych.data, DROP_COLUMNS, COLUMN_ORDER);
+            const fname = `DRM_result_${new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)}.csv`;
+            setTimeout(()=> saveCsvFile(csv, fname), 0);
+          } catch(e) {
+            console.warn("auto-save failed:", e);
+            __autoSavedOnce = false; // 手動保存に委ねる
+          }
+        }
+      },
+
+      on_finish: () => {
+        const csv = toFilteredCSV(jsPsych.data, DROP_COLUMNS, COLUMN_ORDER);
+        const fname = `DRM_result_${new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)}.csv`;
+        saveCsvFile(csv, fname);
+      },
+      data: { phase: 'debrief' }
+    });
+
+    // 実行
+    jsPsych.run(timeline);
+  })();
+  </script>
+</body>
+</html>
