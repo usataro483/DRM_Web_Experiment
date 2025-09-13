@@ -193,7 +193,7 @@
     const timeline=[];
 
     // 教示（Study）
-    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>学習フェイズ</h2><p>これから単語リストが表示されます。すべての単語をよく覚えてください。</p><p>各リストの提示が終わるたびに、<b>3桁の数字が</b>表示されます。</p><p>数字が表示されている間は <b>声に出してその数字から7を引き続けてください。</p><p>Nextボタンを押すと学習フェイズが始まります。</b></p>${DEBUG?"<p class='small' style='color:#b00'>(DEBUG)</p>":""}</div></div>`], show_clickable_nav:true, data:{phase:'instruction_study'} });
+    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>学習フェイズ</h2><p>これから6つの単語リストが表示されます。すべての単語をよく覚えてください。</p><p>各リストの提示が終わるたびに、<b>3桁の数字が</b>表示されます。</p><p>数字が表示されている間は <b>声に出してその数字から7を引き続けてください。</p><p>Nextボタンを押すと学習フェイズが始まります。</b></p>${DEBUG?"<p class='small' style='color:#b00'>(DEBUG)</p>":""}</div></div>`], show_clickable_nav:true, data:{phase:'instruction_study'} });
 
     // 学習（各リスト → 単語提示 → ISI → 3桁数字）
     const groupedByList=new Map(); for(const it of studyItems){ if(!groupedByList.has(it.list_name)) groupedByList.set(it.list_name,[]); groupedByList.get(it.list_name).push(it);} 
@@ -224,8 +224,8 @@
         timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:'', choices:'NO_KEYS', trial_duration:STUDY_ISI, data:{phase:'study_isi'} });
       }
       const num=Math.floor(200+rand()*800);
-      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:PRE_BLANK_MS, data:{phase:'distractor_blank', list_name:listName} });
-      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:DISTRACTOR_NUM_MS, data:{phase:'distractor', list_name:listName, number:num} });
+      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から声に出して7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:PRE_BLANK_MS, data:{phase:'distractor_blank', list_name:listName} });
+      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から声に出して7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:DISTRACTOR_NUM_MS, data:{phase:'distractor', list_name:listName, number:num} });
     }
 
     // 教示（Recognition）
