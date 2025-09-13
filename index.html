@@ -224,8 +224,8 @@
         timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:'', choices:'NO_KEYS', trial_duration:STUDY_ISI, data:{phase:'study_isi'} });
       }
       const num=Math.floor(200+rand()*800);
-      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から声に出して7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:PRE_BLANK_MS, data:{phase:'distractor_blank', list_name:listName} });
-      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>この数字から声に出して7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:DISTRACTOR_NUM_MS, data:{phase:'distractor', list_name:listName, number:num} });
+      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>声に出してこの数字から7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:PRE_BLANK_MS, data:{phase:'distractor_blank', list_name:listName} });
+      timeline.push({ type: jsPsychHtmlKeyboardResponse, stimulus:`<div class='center-screen'><div><div class='word'>${num}</div><p class='note sub-instr'>声に出してこの数字から7を引き続けてください</p></div></div>`, choices:'NO_KEYS', trial_duration:DISTRACTOR_NUM_MS, data:{phase:'distractor', list_name:listName, number:num} });
     }
 
     // 教示（Recognition）
