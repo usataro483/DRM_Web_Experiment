@@ -192,8 +192,41 @@
 
     const timeline=[];
 
+    // 基本情報の入力
+    timeline.push({
+    type: jsPsychSurveyHtmlForm,
+    preamble: "<h2>基本情報の入力</h2><p>以下を選択してください。</p>",
+    html: `
+      <label for="age">年齢：</label>
+      <select name="age" id="age" required>
+        ${Array.from({length:83},(_,i)=>i+18).map(
+          age => `<option value="${age}" ${age===19?"selected":""}>${age}</option>`
+        ).join("")}
+      </select>
+      <br><br>
+
+      <label for="gender">性別：</label>
+      <select name="gender" id="gender" required>
+        <option value="male">男</option>
+        <option value="female">女</option>
+        <option value="lgbtq">LGBTQ+</option>
+        <option value="no_answer">回答しない</option>
+      </select>
+    `,
+    button_label: "Next",
+    data: {phase: "demographics"},
+    on_finish: (data) => {
+      const resp = JSON.parse(data.response);
+      jsPsych.data.addProperties({
+        age: resp.age,
+        gender: resp.gender
+      });
+    }
+  });
+
+
     // 教示（Study）
-    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>学習フェイズ</h2><p>これから6つの単語リストが表示されます。すべての単語をよく覚えてください。</p><p>各リストの提示が終わるたびに、<b>3桁の数字が</b>表示されます。</p><p>数字が表示されている間は <b>声に出してその数字から7を引き続けてください。</p><p>Nextボタンを押すと学習フェイズが始まります。</b></p>${DEBUG?"<p class='small' style='color:#b00'>(DEBUG)</p>":""}</div></div>`], show_clickable_nav:true, data:{phase:'instruction_study'} });
+    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>学習フェイズ</h2><p>これから6つの単語リストが表示されます。すべての単語をよく覚えてください。</p><p>各リストの提示が終わるたびに、<b>3桁の数字が</b>表示されます。</p><p>数字が表示されている間は <b>声に出してその数字から7を引き続けてください。</p><p>準備ができたらNextボタンを押してください。</b></p>${DEBUG?"<p class='small' style='color:#b00'>(DEBUG)</p>":""}</div></div>`], show_clickable_nav:true, data:{phase:'instruction_study'} });
 
     // 学習（各リスト → 単語提示 → ISI → 3桁数字）
     const groupedByList=new Map(); for(const it of studyItems){ if(!groupedByList.has(it.list_name)) groupedByList.set(it.list_name,[]); groupedByList.get(it.list_name).push(it);} 
@@ -229,7 +262,7 @@
     }
 
     // 教示（Recognition）
-    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>再認フェイズ</h2><p>これからお見せする単語が先ほど学習した単語だったかどうかを判断してください。</p><p>先ほど見せられた単語なら「学習した」を、</p><p>見せられた単語でなければ「学習していない」をクリックしてください。</p><p>Nextボタンを押すと再認フェイズが始まります。</p></div></div>`], show_clickable_nav:true, data:{phase:'instruction_recognition'} });
+    timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>再認フェイズ</h2><p>これからお見せする単語が先ほど学習した単語だったかどうかを判断してください。</p><p>先ほど見せられた単語なら「学習した」を、</p><p>見せられた単語でなければ「学習していない」をクリックしてください。</p><p>準備ができたらNextボタンを押してください。</p></div></div>`], show_clickable_nav:true, data:{phase:'instruction_recognition'} });
 
     // 再認セット
     const recogOld = sampleOldForRecognition(studyItems);
