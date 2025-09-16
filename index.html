@@ -15,6 +15,7 @@
   <script src="jspsych/dist/xlsx.full.min.js"></script>
   <script src="jspsych/dist/plugin-survey-html-form.js"></script>
 
+
   <style>
    
     body { background:#fafafa; }
@@ -43,6 +44,11 @@
      line-height: 1.6;
      font-weight: bold; 
      }
+     /* survey-html-form の送信ボタンを1行下に（縦積み） */
+    .jspsych-survey-html-form .jspsych-btn {
+      display: block;
+      margin-top: 16px;
+    }
   </style>
 </head>
 <body>
@@ -217,14 +223,16 @@
     button_label: "Next",
     data: {phase: "demographics"},
     on_finish: (data) => {
-      const resp = JSON.parse(data.response);
+      let resp = data.response;
+      if (typeof resp === 'string') {
+        try { resp = JSON.parse(resp); } catch(e) { /* 文字列でもJSONでなければそのまま無視 */ }
+      }
       jsPsych.data.addProperties({
-        age: resp.age,
-        gender: resp.gender
+        age: resp?.age ?? "",
+        gender: resp?.gender ?? ""
       });
     }
   });
-
 
     // 教示（Study）
     timeline.push({ type: jsPsychInstructions, pages:[`<div class='center-screen instr-size'><div><h2>学習フェイズ</h2><p>これから6つの単語リストが表示されます。すべての単語をよく覚えてください。</p><p>各リストの提示が終わるたびに、<b>3桁の数字が</b>表示されます。</p><p>数字が表示されている間は <b>声に出してその数字から7を引き続けてください。</p><p>準備ができたらNextボタンを押してください。</b></p>${DEBUG?"<p class='small' style='color:#b00'>(DEBUG)</p>":""}</div></div>`], show_clickable_nav:true, data:{phase:'instruction_study'} });
