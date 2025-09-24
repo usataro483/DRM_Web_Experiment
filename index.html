@@ -124,7 +124,7 @@
 
   // ==== 不要列を除外してCSV化 ====
   const DROP_COLUMNS = ["view_history","stimulus","plugin_version","stage"];
-  const COLUMN_ORDER = ["exp_name","subj_id","trial_index","trial_type","time_elapsed","list_name","list_type","phase","word","number","is_old","said_old","response","correct","rt"];
+  const COLUMN_ORDER = ["exp_name","subj_id","trial_index","trial_type","time_elapsed","list_name","list_type","phase","word","number","is_old","said_old","response","correct","rt","age","gender"];
 
   function toFilteredCSV(dataCollection, dropKeys, order) {
     const rows = dataCollection.get().values();
