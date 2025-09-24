@@ -132,10 +132,8 @@
     return needsQuote ? `"${doubled}"` : doubled;
   }
   function toFilteredCSV(dataCollection, dropKeys, order) {
-      const rows = dataCollection.get().values();
-      function toFilteredCSV(dataCollection, dropKeys, order) {
-        let rows = dataCollection.get().values?.() ?? [];
-        rows = rows.filter(r => (r?.phase !== 'demographics' && r?.trial_type !== 'survey-html-form'));
+    let rows = dataCollection.get().values?.() ?? [];
+    rows = rows.filter(r => (r?.phase !== 'demographics' && r?.trial_type !== 'survey-html-form'));
     if (!rows || rows.length === 0) return "";
 
     // すべての列名を収集
@@ -170,7 +168,7 @@
           const v = (r[h] === undefined || r[h] === null) ? "" : r[h];
           const s = (typeof v === "object") ? JSON.stringify(v) : String(v);
           return csvEscape(s);
-        }).join(",");
+      }).join(",");
       lines.push(line);
     }
     return lines.join("\n");
