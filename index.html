@@ -124,7 +124,7 @@
 
   // ==== 不要列を除外してCSV化 ====
   const DROP_COLUMNS = ["view_history","stimulus","plugin_version","stage"];
-  const COLUMN_ORDER = ["exp_name","subj_id","trial_index","trial_type","time_elapsed","list_name","list_type","phase","word","number","is_old","said_old","response","correct","rt","age","gender"];
+  const COLUMN_ORDER = ["exp_name","subj_id","trial_index","trial_type","time_elapsed","list_name","list_type","phase","word","number","is_old","said_old","item_type","response","correct","rt"];
 
   function toFilteredCSV(dataCollection, dropKeys, order) {
     const rows = dataCollection.get().values();
@@ -298,9 +298,11 @@
           list_type: jsPsych.timelineVariable('list_type'),
           is_old: jsPsych.timelineVariable('is_old')
         },
-        on_finish: (d)=>{
-          const idx=(typeof d.response==='number')?d.response:-1; const said_old=(idx===0);
-          d.said_old=said_old; d.correct=Number(idx!==-1 ? (said_old===d.is_old) : false);
+         on_finish: (d) => {
+           const idx = (typeof d.response === 'number') ? d.response : -1;
+           const said_old = (idx === 0);
+           d.said_old = said_old;
+           d.correct = Number(idx !== -1 ? (said_old === d.is_old) : false);
         }
       }],
       timeline_variables: recogTV
