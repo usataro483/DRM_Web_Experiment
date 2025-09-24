@@ -125,9 +125,17 @@
   // ==== 不要列を除外してCSV化 ====
   const DROP_COLUMNS = ["view_history","stimulus","plugin_version","stage"];
   const COLUMN_ORDER = ["exp_name","subj_id","trial_index","trial_type","time_elapsed","list_name","list_type","phase","word","number","is_old","said_old","item_type","response","correct","rt","age","gender"];
-
+  function csvEscape(v) {
+    const s = (v === undefined || v === null) ? "" : String(v);
+    const needsQuote = /[",\r\n]/.test(s);
+    const doubled = s.replace(/"/g, '""');
+    return needsQuote ? `"${doubled}"` : doubled;
+  }
   function toFilteredCSV(dataCollection, dropKeys, order) {
-    const rows = dataCollection.get().values();
+      const rows = dataCollection.get().values();
+      function toFilteredCSV(dataCollection, dropKeys, order) {
+        let rows = dataCollection.get().values?.() ?? [];
+        rows = rows.filter(r => (r?.phase !== 'demographics' && r?.trial_type !== 'survey-html-form'));
     if (!rows || rows.length === 0) return "";
 
     // すべての列名を収集
@@ -156,14 +164,13 @@
 
     // CSV生成
     const lines = [];
-    lines.push(headers.join(","));
+    lines.push(headers.map(csvEscape).join(","));
     for (const r of rows) {
         const line = headers.map(h => {
           const v = (r[h] === undefined || r[h] === null) ? "" : r[h];
           const s = (typeof v === "object") ? JSON.stringify(v) : String(v);
-          return JSON.stringify(s); // CSVセルとしての二重化（カンマ/改行/ダブルクォートを安全に）
+          return csvEscape(s);
         }).join(",");
-
       lines.push(line);
     }
     return lines.join("\n");
