@@ -158,7 +158,12 @@
     const lines = [];
     lines.push(headers.join(","));
     for (const r of rows) {
-      const line = headers.map(h => JSON.stringify(r[h] ?? "")).join(",");
+        const line = headers.map(h => {
+          const v = (r[h] === undefined || r[h] === null) ? "" : r[h];
+          const s = (typeof v === "object") ? JSON.stringify(v) : String(v);
+          return JSON.stringify(s); // CSVセルとしての二重化（カンマ/改行/ダブルクォートを安全に）
+        }).join(",");
+
       lines.push(line);
     }
     return lines.join("\n");
@@ -303,7 +308,16 @@
            const said_old = (idx === 0);
            d.said_old = said_old;
            d.correct = Number(idx !== -1 ? (said_old === d.is_old) : false);
-        }
+           d.response = said_old ? "old" : "new";
+           const p = (String(d.list_name || '').trim().toUpperCase() || '?')[0]; // 'A' or 'B' or '?'
+           let it = "new";
+           if (d.list_type === "old") {
+             it = (p === 'A') ? "oldA" : (p === 'B') ? "oldB" : "old?";
+           } else if (d.list_type === "lure") {
+             it = (p === 'A') ? "lureA" : (p === 'B') ? "lureB" : "lure?";
+           }
+           d.item_type = it;
+          }
       }],
       timeline_variables: recogTV
     });
