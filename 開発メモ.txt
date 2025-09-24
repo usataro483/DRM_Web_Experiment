@@ -6,4 +6,5 @@ python -m http.server 8000
 
 ③ブラウザで http://localhost:8000 を開く
 
-
+http://localhost:8000?debug=1
+を入力するとデバックモード
